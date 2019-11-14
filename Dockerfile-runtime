@@ -1,0 +1,121 @@
+FROM php:7.3-fpm-alpine3.10
+
+#COPY 000-default.conf /magento/000-default.conf
+#COPY Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz /magento/Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz
+#COPY BaltimoreCyberTrustRoot.crt.pem /magento/BaltimoreCyberTrustRoot.crt.pem
+COPY install-composer.sh /magento/install-composer.sh
+COPY magento.conf /magento/magento.conf
+
+# Install all build-deps and then install magento.
+RUN apk --no-cache --update --virtual runtime-deps add \
+        apache2 \
+        apache2-proxy \
+        bash \
+        cifs-utils \
+        dcron \
+        freetype \
+        gzip \
+        lsof \
+        icu-libs \
+        libcap \
+        libjpeg \
+        libmcrypt \
+        libpng \
+        libxslt \
+        libzip \
+        sed \
+        tar && \
+    apk --no-cache --update --virtual build-deps add \
+        autoconf \
+        binutils \
+        curl-dev \
+        dpkg \
+        dpkg-dev \
+        file \
+        freetype-dev \
+        g++ \
+        gcc \
+        gmp \
+        icu-dev \
+        isl \
+        libatomic \
+        libbz2 \
+        libc-dev \
+        libgcc \
+        libgomp \
+        libjpeg-turbo-dev \
+        libmagic \
+        libmcrypt-dev \
+        libpng-dev \
+        libstdc++ \
+        libxslt-dev \
+        libzip-dev \
+        m4 \
+        make \
+        mpc1 \
+        mpfr3 \
+        musl-dev \
+        pcre-dev \
+        perl \
+        pkgconf \
+        pkgconfig \
+        re2c && \
+    pecl install xdebug && \
+    docker-php-ext-install bcmath curl iconv intl json mbstring opcache pdo_mysql soap xsl zip && \
+    docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ && \
+    docker-php-ext-install gd && \
+    # Disable the mpm prefork module
+    sed -i -e '/LoadModule mpm_prefork_module/s/^/#/g' \
+    # Enable the rewrite and mpm event modules
+        -e '/LoadModule \(mpm_event_module\|rewrite_module\)/s/^#//g' /etc/apache2/httpd.conf && \
+    # Configure Magento site
+    mv /magento/magento.conf /etc/apache2/conf.d/magento.conf && \
+    # Configure PHP
+    mv /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini && \
+    sed -i -e 's@;date\.timezone =@date.timezone = America/Los_Angeles@g' \
+        -e 's@^;opcache.save_comments.*$@opcache.save_comments=1@g' \
+        -e 's@^memory_limit.*$@memory_limit=2G@g' /usr/local/etc/php/php.ini && \
+    # Install Composer
+    sh -c /magento/install-composer.sh && \
+    rm /magento/install-composer.sh && \
+    # && cd /var/tmp \
+    # && php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+    # && php -r "if (hash_file('SHA384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;" \
+    # && php composer-setup.php \
+    # && php -r "unlink('composer-setup.php');" \
+    # && mv composer.phar /usr/local/bin/composer \
+    # && setcap cap_net_bind_service=+ep /usr/sbin/httpd \
+    # && mkdir -p /magento/htdocs \
+    # && mkdir -p /magento/logs \
+    # && mkdir -p /magento/cgi-bin \
+    # && mkdir -p /magento/bin \
+    # && chown -R magento:magento /magento \
+    # && su magento -c "composer create-project magento/community-edition:${MAGENTO_VERSION} /magento/htdocs/" \
+    # && su magento -c "cd /magento/htdocs && composer install" \
+    # && su magento -c "cd /magento/htdocs && composer require --no-update n98/magerun2:${MAGERUN_VERSION}" \
+    # && su magento -c "cd /magento/htdocs && composer update" \
+    # && su magento -c "cd /magento/htdocs && composer clear-cache" \
+    #apk del build-deps && \
+    adduser -S -s /bin/sh -D magento -G www-data && \
+    ## Make mount point
+    #mkdir /var/www/html/magento2 && \
+    # Set permissions for apache
+    chown -R www-data:www-data /var/www && \
+    chmod go-rwx /var/www && \
+    chmod go+x /var/www && \
+    chgrp -R www-data /var/www && \
+    chmod -R go-rwx /var/www && \
+    chmod -R g+rx /var/www && \
+    chmod -R g+rwx /var/www && \
+    #chown magento:www-data /var/www/html/magento2/Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz && \
+    mkdir /home/magento/.composer && \
+    chown magento:www-data /home/magento/.composer && \
+    # Cleanup
+    apk del build-deps && \
+    rm -rf /magento
+#ENTRYPOINT ["httpd"] 
+#CMD ["-D", "FOREGROUND"]
+USER magento
+CMD /bin/sh -c 'php-fpm -D && httpd -D FOREGROUND'
+# REMOVE!
+#USER root
