@@ -1,8 +1,5 @@
 FROM php:7.3-fpm-alpine3.10
 
-#COPY 000-default.conf /magento/000-default.conf
-#COPY Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz /magento/Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz
-#COPY BaltimoreCyberTrustRoot.crt.pem /magento/BaltimoreCyberTrustRoot.crt.pem
 COPY install-composer.sh /magento/install-composer.sh
 COPY magento.conf /magento/magento.conf
 
@@ -78,27 +75,7 @@ RUN apk --no-cache --update --virtual runtime-deps add \
     # Install Composer
     sh -c /magento/install-composer.sh && \
     rm /magento/install-composer.sh && \
-    # && cd /var/tmp \
-    # && php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
-    # && php -r "if (hash_file('SHA384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;" \
-    # && php composer-setup.php \
-    # && php -r "unlink('composer-setup.php');" \
-    # && mv composer.phar /usr/local/bin/composer \
-    # && setcap cap_net_bind_service=+ep /usr/sbin/httpd \
-    # && mkdir -p /magento/htdocs \
-    # && mkdir -p /magento/logs \
-    # && mkdir -p /magento/cgi-bin \
-    # && mkdir -p /magento/bin \
-    # && chown -R magento:magento /magento \
-    # && su magento -c "composer create-project magento/community-edition:${MAGENTO_VERSION} /magento/htdocs/" \
-    # && su magento -c "cd /magento/htdocs && composer install" \
-    # && su magento -c "cd /magento/htdocs && composer require --no-update n98/magerun2:${MAGERUN_VERSION}" \
-    # && su magento -c "cd /magento/htdocs && composer update" \
-    # && su magento -c "cd /magento/htdocs && composer clear-cache" \
-    #apk del build-deps && \
     adduser -S -s /bin/sh -D magento -G www-data && \
-    ## Make mount point
-    #mkdir /var/www/html/magento2 && \
     # Set permissions for apache
     chown -R www-data:www-data /var/www && \
     chmod go-rwx /var/www && \
@@ -107,15 +84,11 @@ RUN apk --no-cache --update --virtual runtime-deps add \
     chmod -R go-rwx /var/www && \
     chmod -R g+rx /var/www && \
     chmod -R g+rwx /var/www && \
-    #chown magento:www-data /var/www/html/magento2/Magento-CE-2.3.3_sample_data-2019-09-26-04-44-35.tar.gz && \
     mkdir /home/magento/.composer && \
     chown magento:www-data /home/magento/.composer && \
     # Cleanup
     apk del build-deps && \
     rm -rf /magento
-#ENTRYPOINT ["httpd"] 
-#CMD ["-D", "FOREGROUND"]
-USER magento
+#USER magento
 CMD /bin/sh -c 'php-fpm -D && httpd -D FOREGROUND'
-# REMOVE!
-#USER root
+

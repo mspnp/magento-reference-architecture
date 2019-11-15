@@ -1,5 +1,8 @@
 #!/bin/sh
 
+DISK_SIZE_IN_GB=10
+NUMBER_OF_PODS=3
+
 # First, we will clean up everything just in case we are resizing the number of pods or recreating the snapshot
 
 # Delete all web pods
@@ -20,7 +23,6 @@ done <<EOF
 $(az disk list --resource-group my-test-magento-rg --query "[?starts_with(name, 'magentoweb-pv-')].id" --output tsv)
 EOF
 
-DISK_SIZE_IN_GB=10
 RESOURCE_ID=$(az snapshot show --resource-group my-test-magento-rg --name magento-disk-snapshot --query id --output tsv)
 if [ ! -z "$RESOURCE_ID" ]; then
   az snapshot delete --resource-group my-test-magento-rg --name magento-disk-snapshot
@@ -28,7 +30,6 @@ fi
 
 az snapshot create --resource-group my-test-magento-rg --name magento-disk-snapshot --source /subscriptions/3b518fac-e5c8-4f59-8ed5-d70b626f8e10/resourceGroups/my-test-magento-rg/providers/Microsoft.Compute/disks/magento-disk
 
-NUMBER_OF_PODS=3
 i=0 # Number of pods/disks to create
 while [ $i -le $(( $NUMBER_OF_PODS - 1 )) ]; do
   POD_NAME="magentoweb-${i}"
