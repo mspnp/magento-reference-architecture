@@ -1,0 +1,45 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: magentoweb
+  namespace: default
+  labels:
+    app: magentoweb
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: magentoweb
+  template:
+    metadata:
+      labels:
+        app: magentoweb
+    spec:
+      containers:
+      - image: magentocrxvxgwbf2ivsiu.azurecr.io/magento2:latest
+        imagePullPolicy: Always
+        name: magentoweb2
+        resources:
+          requests:
+            memory: "2Gi"
+        volumeMounts:
+          - name: magento-config
+            mountPath: /var/www/html/magento2/app/etc/env.php
+            subPath: env.php
+      - image: magentocrxvxgwbf2ivsiu.azurecr.io/varnish:latest
+        imagePullPolicy: Always
+        name: magentoweb
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          requests:
+            memory: "2Gi"
+      imagePullSecrets:
+      - name: magento-registry-cred
+      securityContext:
+        fsGroup: 82
+      volumes:
+      - name: magento-config
+        secret:
+          secretName: magento-config

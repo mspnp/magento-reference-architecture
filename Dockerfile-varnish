@@ -1,0 +1,8 @@
+FROM alpine:3.10
+
+RUN apk --no-cache --update --virtual runtime-deps add varnish
+COPY magento.vcl /etc/varnish/magento.vcl
+CMD /bin/sh -c 'varnishd \
+                -s malloc,1G \
+                -a :80 \
+                -f /etc/varnish/magento.vcl && varnishlog'
