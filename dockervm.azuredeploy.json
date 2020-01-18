@@ -106,7 +106,7 @@
                         "autoUpgradeMinorVersion": true,
                         "settings": { },
                         "protectedSettings": {
-                            "commandToExecute": "/bin/bash setup-docker-vm.sh",
+                            "commandToExecute": "[concat('/bin/bash setup-docker-vm.sh ', parameters('adminUserName'))]",
                             "fileUris": [
                                 "https://raw.githubusercontent.com/mspnp/magento-reference-architecture/andrew/wip/setup-docker-vm.sh"
                             ]  

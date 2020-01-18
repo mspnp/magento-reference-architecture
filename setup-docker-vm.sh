@@ -38,3 +38,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     containerd.io \
     kubectl \
     azure-cli
+
+# Add user to docker group
+usermod -aG docker $1
+
