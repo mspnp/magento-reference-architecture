@@ -1,14 +1,11 @@
-FROM php:7.3-fpm-alpine3.10
+FROM php:7.3-fpm-alpine3.10 AS magento2_deps
+ARG MAGENTO_TIMEZONE
+ARG MAGENTO_PHP_MEMORYLIMIT
 
 COPY magento.conf /magento/magento.conf
-COPY .env /magento/.env
-COPY install-composer.sh /magento/install-composer.sh
 
 # Install all build-deps and then install magento.
-RUN set -a && \
-    . /magento/.env && \
-    set +a && \
-    rm -rf /var/cache/apk/* && \
+RUN rm -rf /var/cache/apk/* && \
     rm -rf /tmp/* && \
     apk update && \
     apk --no-cache --virtual runtime-deps add \
@@ -80,10 +77,7 @@ RUN set -a && \
     #env && \
     sed -i -e 's@;date\.timezone =@date.timezone = '"${MAGENTO_TIMEZONE}"'@g' \
         -e 's@^;opcache.save_comments.*$@opcache.save_comments=1@g' \
-        -e 's@^memory_limit.*$@memory_limit='"${MAGENTO_PHP_MEMORYLIMIT}"'@g' /usr/local/etc/php/php.ini && \
-    # Install Composer
-    sh -c /magento/install-composer.sh && \
-    rm /magento/install-composer.sh && \
+        -e 's@^memory_limit.*$@memory_limit='"$MAGENTO_PHP_MEMORYLIMIT"'@g' /usr/local/etc/php/php.ini && \
     adduser -S -s /bin/sh -D magento -G www-data && \
     # Set permissions for apache
     chown -R www-data:www-data /var/www && \
@@ -98,17 +92,30 @@ RUN set -a && \
     rm -rf /var/cache/apk/* && \
     rm -rf /tmp/*
 
+FROM magento2_deps as builder
+COPY .env_build /magento/.env
+COPY download-magento.sh /magento/download-magento.sh
+COPY install-composer.sh /magento/install-composer.sh
+
 # Normally, we should probably combine these steps to reduce the number of layers.
 # However, each of these steps can fail for various reasons, so we don't want to have
 # to keep running the whole thing.
-COPY download-magento.sh /magento/download-magento.sh
+
 # We need to alter the php execution time because installing the sample data can take a long time.
 # We just need to make sure to reset it.
-RUN sed -i -e 's@^max_execution_time.*$@max_execution_time = 1200@g' /usr/local/etc/php/php.ini && \
+RUN sh -c /magento/install-composer.sh && \
+#    rm /magento/install-composer.sh && \
+    sed -i -e 's@^max_execution_time.*$@max_execution_time = 1200@g' /usr/local/etc/php/php.ini && \
     su - magento -c 'set -a; . /magento/.env; set +a; /magento/download-magento.sh' && \
     sed -i -e 's@^max_execution_time.*$@max_execution_time = 30@g' /usr/local/etc/php/php.ini
 COPY install-magento.sh /magento/install-magento.sh
 RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/install-magento.sh'
 COPY configure-magento.sh /magento/configure-magento.sh
-RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh' && \
-    rm -rf /magento
+RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh'
+
+FROM builder AS clean
+RUN rm /var/www/html/magento2/app/etc/env.php
+
+FROM magento2_deps AS magento2
+COPY --from=clean /var/www/html/magento2 /var/www/html/magento2
+CMD /bin/sh -c 'php-fpm -D && httpd -D FOREGROUND'
