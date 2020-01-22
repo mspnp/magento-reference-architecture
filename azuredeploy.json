@@ -88,10 +88,7 @@
             "name": "[variables('mysqlServerName')]",
             "location": "[parameters('location')]",
             "sku": {
-                "name": "GP_Gen5_4",
-                "tier": "GeneralPurpose",
-                "family": "Gen5",
-                "capacity": 4
+                "name": "GP_Gen5_8"
             },
             "properties": {
                 "administratorLogin": "[parameters('mysqlAdministratorLogin')]",
