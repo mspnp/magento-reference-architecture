@@ -72,6 +72,31 @@ MAGENTO_CACHE_PASSWORD=$(az redis list-keys \
       --output tsv \
 )
 
+PUB_STORAGE_ACCOUNT_NAME=$(az storage account list \
+      --resource-group ${MAGENTO_RESOURCE_GROUP} \
+      --subscription ${SUBSCRIPTION_ID} \
+      --query "[0].name" \
+      --output tsv \
+)
+
+PUB_STORAGE_ACCOUNT_KEY=$(az storage account keys list \
+      --account-name ${PUB_STORAGE_ACCOUNT_NAME} \
+      --query "[0].value" \
+      --output tsv \
+)
+
+MAGENTO_CDN_HOSTNAME=$(az cdn endpoint list \
+      --resource-group ${MAGENTO_RESOURCE_GROUP} \
+      --subscription ${SUBSCRIPTION_ID} \
+      --profile-name $(az cdn profile list \
+            --resource-group ${MAGENTO_RESOURCE_GROUP} \
+	    --subscription ${SUBSCRIPTION_ID} \
+	    --query "[0].name" \
+	    --output tsv) \
+      --query "[0].hostName" \
+      --output tsv
+)
+
 # Login to the container registry
 az acr login \
       --name ${ACR_NAME} \
@@ -90,6 +115,14 @@ kubectl create secret docker-registry magento-registry-cred \
       --docker-username=${ACR_USERNAME} \
       --docker-password=${ACR_PASSWORD} \
       --docker-email="notused@email.com" \
+      --dry-run=true \
+      --output yaml | \
+      kubectl apply -f -
+
+
+kubectl create secret generic azurefilecreds \
+      --from-literal=azurestorageaccountname=${PUB_STORAGE_ACCOUNT_NAME} \
+      --from-literal=azurestorageaccountkey="${PUB_STORAGE_ACCOUNT_KEY}" \
       --dry-run=true \
       --output yaml | \
       kubectl apply -f -
@@ -113,7 +146,12 @@ sed -e 's@MAGENTO_COMPOSER_USERNAME=$@MAGENTO_COMPOSER_USERNAME='"${MAGENTO_COMP
       -e 's@MAGENTO_DB_PASSWORD=$@MAGENTO_DB_PASSWORD='"${MAGENTO_DB_PASSWORD}"'@g' \
       -e 's@MAGENTO_CACHE_HOST=$@MAGENTO_CACHE_HOST='"${MAGENTO_CACHE_HOST}"'@g' \
       -e 's@MAGENTO_CACHE_PASSWORD=$@MAGENTO_CACHE_PASSWORD='"${MAGENTO_CACHE_PASSWORD}"'@g' \
-      -e 's@MAGENTO_BASE_URL=$@MAGENTO_BASE_URL='"${MAGENTO_BASE_URL}"'@g' ./.env > ./.env_build
+      -e 's@MAGENTO_BASE_URL=$@MAGENTO_BASE_URL='"${MAGENTO_BASE_URL}"'@g' \
+      -e 's@MAGENTO_BASE_STATIC_URL=$@MAGENTO_BASE_STATIC_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/static"'@g' \
+      -e 's@MAGENTO_BASE_MEDIA_URL=$@MAGENTO_BASE_MEDIA_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/media"'@g' ./.env > ./.env_build
+
+wget -O azcopy_v10.tar.gz https://azcopyvnext.azureedge.net/release20200124/azcopy_linux_amd64_10.3.4.tar.gz \
+      && tar -xf azcopy_v10.tar.gz --strip-components=1
 
 # Build the local builder and tag it so we can get the generated configuration file out
 docker build . -f Dockerfile-magento \
@@ -137,10 +175,27 @@ docker push ${ACR_LOGIN_SERVER}/magento2
 docker push ${ACR_LOGIN_SERVER}/varnish
 
 docker run --rm magento2-builder /bin/sh -c 'sleep 3600' &
+
 # Wait just a bit
 sleep 10
 CONTAINER_ID=$(docker ps --filter ancestor=magento2-builder -q)
-docker cp ${CONTAINER_ID}:/var/www/html/magento2/app/etc/env.php ./env.php
+rm -rf ./media
+rm -rf ./static
+docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/app/etc/env.php ./env.php
+docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/pub/media ./media
+docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/pub/static ./static
+
+SAS_TOKEN=$(az storage file generate-sas \
+      --account-name ${PUB_STORAGE_ACCOUNT_NAME} \
+      --path / \
+      --permissions rcdw \
+      --share-name pub \
+      --output tsv
+)
+# There is a bug in docker cp with the --archive flag
+sudo chown -R 101:82 ./media/ && sudo chown -R 101:82 ./static/
+azcopy copy ./media "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
+azcopy copy ./static "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
 docker stop ${CONTAINER_ID}
 
 kubectl create secret generic magento-config \
@@ -153,5 +208,5 @@ kubectl create secret generic magento-config \
 rm ./env.php
 
 # Deploy Magento to the Kubernetes cluster
-sed -e "s/ACR_LOGIN_SERVER/${ACR_LOGIN_SERVER}/g" ./magento-deployment.yaml | \
-      kubectl apply -f -
+echo '"'"sed -e "'"'"s/ACR_LOGIN_SERVER/${ACR_LOGIN_SERVER}/g"'"'" ./magento-deployment.yaml | kubectl apply -f -"'"'
+

@@ -28,4 +28,11 @@ set -exuo pipefail
 /var/www/html/magento2/bin/magento config:set -vvv \
     system/full_page_cache/varnish/backend_port 8080
 
+/var/www/html/magento2/bin/magento config:set -vvv \
+    web/unsecure/base_static_url ${MAGENTO_BASE_STATIC_URL}
+
+/var/www/html/magento2/bin/magento config:set -vvv \
+    web/unsecure/base_media_url ${MAGENTO_BASE_MEDIA_URL}
+
 /var/www/html/magento2/bin/magento deploy:mode:set -vvv production
+

@@ -23,6 +23,10 @@ spec:
           requests:
             memory: "2Gi"
         volumeMounts:
+          - name: magento-pub-media 
+            mountPath: /var/www/html/magento2/pub/media
+          - name: magento-pub-static
+            mountPath: /var/www/html/magento2/pub/static
           - name: magento-config
             mountPath: /var/www/html/magento2/app/etc/env.php
             subPath: env.php
@@ -43,3 +47,14 @@ spec:
       - name: magento-config
         secret:
           secretName: magento-config
+      - name: magento-pub-media
+        azureFile:
+          secretName: azurefilecreds
+          shareName: pub/media
+          readOnly: false
+      - name: magento-pub-static
+        azureFile:
+          secretName: azurefilecreds
+          shareName: pub/static
+          readOnly: false
+
