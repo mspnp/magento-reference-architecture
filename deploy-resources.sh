@@ -10,6 +10,17 @@ az group create \
     --name ${MAGENTO_RESOURCE_GROUP} \
     --location ${RESOURCE_LOCATION} \
     --subscription ${SUBSCRIPTION_ID}
+
+# We will validate the template first because AKS will check core availability
+az group deployment validate \
+    --resource-group ${MAGENTO_RESOURCE_GROUP} \
+    --template-file azuredeploy.json  \
+    --parameters \
+        mysqlAdministratorLogin=${MAGENTO_DB_USER} \
+        mysqlAdministratorPassword=${MAGENTO_DB_PASSWORD} \
+        aksServicePrincipalClientId=${AKS_SERVICE_PRINCIPAL_CLIENT_ID} \
+        aksServicePrincipalSecret=${AKS_SERVICE_PRINCIPAL_SECRET}
+
 az group deployment create \
     --resource-group ${MAGENTO_RESOURCE_GROUP} \
     --subscription ${SUBSCRIPTION_ID} \
