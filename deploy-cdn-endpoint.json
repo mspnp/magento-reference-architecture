@@ -1,0 +1,53 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "defaultValue": "[resourceGroup().location]",
+            "type": "string"
+        },
+        "hostName": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "nameSuffix": "[uniqueString(resourceGroup().id)]",
+        "cdnProfileName": "[concat('magento-cdn-', variables('nameSuffix'))]",
+        "cdnEndpointName": "[concat(variables('cdnProfileName'), '/magento-end-', variables('nameSuffix'))]"
+    },
+    "resources": [
+        {
+            "name": "[variables('cdnEndpointName')]",
+            "type": "Microsoft.Cdn/profiles/endpoints",
+            "location": "[parameters('location')]",
+            "apiVersion": "2016-04-02",
+            "properties": {
+                "originHostHeader": "[parameters('hostName')]",
+                "isHttpAllowed": true,
+                "isHttpsAllowed": false,
+                "queryStringCachingBehavior": "IgnoreQueryString",
+                "contentTypesToCompress": [
+                    "text/plain",
+                    "text/html",
+                    "text/css",
+                    "text/javascript",
+                    "application/x-javascript",
+                    "application/javascript",
+                    "application/json",
+                    "application/xml"
+                ],
+                "isCompressionEnabled": true,
+                "origins": [
+                    {
+                        "name": "magento-origin",
+                        "properties": {
+                            "hostName": "[parameters('hostName')]",
+                            "httpPort": 80,
+                            "httpsPort": 443
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

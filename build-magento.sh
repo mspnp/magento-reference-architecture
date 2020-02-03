@@ -81,20 +81,10 @@ PUB_STORAGE_ACCOUNT_NAME=$(az storage account list \
 
 PUB_STORAGE_ACCOUNT_KEY=$(az storage account keys list \
       --account-name ${PUB_STORAGE_ACCOUNT_NAME} \
-      --query "[0].value" \
-      --output tsv \
-)
-
-MAGENTO_CDN_HOSTNAME=$(az cdn endpoint list \
       --resource-group ${MAGENTO_RESOURCE_GROUP} \
       --subscription ${SUBSCRIPTION_ID} \
-      --profile-name $(az cdn profile list \
-            --resource-group ${MAGENTO_RESOURCE_GROUP} \
-	    --subscription ${SUBSCRIPTION_ID} \
-	    --query "[0].name" \
-	    --output tsv) \
-      --query "[0].hostName" \
-      --output tsv
+      --query "[0].value" \
+      --output tsv \
 )
 
 # Login to the container registry
@@ -139,6 +129,26 @@ done
 
 MAGENTO_BASE_URL=http://${LOAD_BALANCER_EXTERNAL_IP}/
 
+az group deployment create \
+     --resource-group ${MAGENTO_RESOURCE_GROUP} \
+     --subscription ${SUBSCRIPTION_ID} \
+     --template-file deploy-cdn-endpoint.json  \
+     --parameters \
+     hostName=${LOAD_BALANCER_EXTERNAL_IP}
+
+
+MAGENTO_CDN_HOSTNAME=$(az cdn endpoint list \
+      --resource-group ${MAGENTO_RESOURCE_GROUP} \
+      --subscription ${SUBSCRIPTION_ID} \
+      --profile-name $(az cdn profile list \
+            --resource-group ${MAGENTO_RESOURCE_GROUP} \
+	    --subscription ${SUBSCRIPTION_ID} \
+	    --query "[0].name" \
+	    --output tsv) \
+      --query "[0].hostName" \
+      --output tsv
+)
+
 sed -e 's@MAGENTO_COMPOSER_USERNAME=$@MAGENTO_COMPOSER_USERNAME='"${MAGENTO_COMPOSER_USERNAME}"'@g' \
       -e 's@MAGENTO_COMPOSER_PASSWORD=$@MAGENTO_COMPOSER_PASSWORD='"${MAGENTO_COMPOSER_PASSWORD}"'@g' \
       -e 's@MAGENTO_DB_HOST=$@MAGENTO_DB_HOST='"${MAGENTO_DB_HOST}"'@g' \
@@ -147,8 +157,8 @@ sed -e 's@MAGENTO_COMPOSER_USERNAME=$@MAGENTO_COMPOSER_USERNAME='"${MAGENTO_COMP
       -e 's@MAGENTO_CACHE_HOST=$@MAGENTO_CACHE_HOST='"${MAGENTO_CACHE_HOST}"'@g' \
       -e 's@MAGENTO_CACHE_PASSWORD=$@MAGENTO_CACHE_PASSWORD='"${MAGENTO_CACHE_PASSWORD}"'@g' \
       -e 's@MAGENTO_BASE_URL=$@MAGENTO_BASE_URL='"${MAGENTO_BASE_URL}"'@g' \
-      -e 's@MAGENTO_BASE_STATIC_URL=$@MAGENTO_BASE_STATIC_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/static"'@g' \
-      -e 's@MAGENTO_BASE_MEDIA_URL=$@MAGENTO_BASE_MEDIA_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/media"'@g' ./.env > ./.env_build
+      -e 's@MAGENTO_BASE_STATIC_URL=$@MAGENTO_BASE_STATIC_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/static/"'@g' \
+      -e 's@MAGENTO_BASE_MEDIA_URL=$@MAGENTO_BASE_MEDIA_URL='"http://${MAGENTO_CDN_HOSTNAME}/pub/media/"'@g' ./.env > ./.env_build
 
 wget -O azcopy_v10.tar.gz https://azcopyvnext.azureedge.net/release20200124/azcopy_linux_amd64_10.3.4.tar.gz \
       && tar -xf azcopy_v10.tar.gz --strip-components=1
@@ -174,28 +184,42 @@ docker push ${ACR_LOGIN_SERVER}/magento2
 
 docker push ${ACR_LOGIN_SERVER}/varnish
 
+# Stop any rnning containers, which may happen if the script is rerun.
+EXISTING_CONTAINER_IDS=$(docker ps --all --quiet --filter ancestor=magento2-builder)
+if [ -n "$EXISTING_CONTAINER_IDS" ]; then
+        echo "Stopping running containers"
+        docker stop $EXISTING_CONTAINER_IDS
+fi
+
 docker run --rm magento2-builder /bin/sh -c 'sleep 3600' &
 
 # Wait just a bit
 sleep 10
 CONTAINER_ID=$(docker ps --filter ancestor=magento2-builder -q)
-rm -rf ./media
-rm -rf ./static
+sudo rm -rf ./media
+sudo rm -rf ./static
 docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/app/etc/env.php ./env.php
 docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/pub/media ./media
 docker cp --archive ${CONTAINER_ID}:/var/www/html/magento2/pub/static ./static
 
-SAS_TOKEN=$(az storage file generate-sas \
+# This is  to work around an azcopy issue
+NOW=`date +"%Y-%m-%dT%H:%M:00Z"`
+NOW=`date -d "$NOW - 15 minutes" +"%Y-%m-%dT%H:%M:00Z"`
+EXPIRY=`date -d "$NOW + 10 years" +"%Y-%m-%dT%H:%M:00Z"`
+
+SAS_TOKEN=$(az storage share generate-sas \
       --account-name ${PUB_STORAGE_ACCOUNT_NAME} \
-      --path / \
-      --permissions rcdw \
-      --share-name pub \
+      --subscription ${SUBSCRIPTION_ID} \
+      --name pub \
+      --start $NOW \
+      --expiry $EXPIRY \
+      --permissions rw \
       --output tsv
 )
 # There is a bug in docker cp with the --archive flag
 sudo chown -R 101:82 ./media/ && sudo chown -R 101:82 ./static/
-azcopy copy ./media "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
-azcopy copy ./static "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
+./azcopy copy ./media "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
+./azcopy copy ./static "https://${PUB_STORAGE_ACCOUNT_NAME}.file.core.windows.net/pub?${SAS_TOKEN}" --recursive 
 docker stop ${CONTAINER_ID}
 
 kubectl create secret generic magento-config \
