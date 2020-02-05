@@ -34,5 +34,20 @@ set -exuo pipefail
 /var/www/html/magento2/bin/magento config:set -vvv \
     web/unsecure/base_media_url ${MAGENTO_BASE_MEDIA_URL}
 
+/var/www/html/magento2/bin/magento config:set -vvv \
+	    dev/css/merge_css_files 1
+
+/var/www/html/magento2/bin/magento config:set -vvv \
+	    dev/css/minify_files 1
+
+/var/www/html/magento2/bin/magento config:set -vvv \
+	    dev/js/enable_js_bundling 0
+
+/var/www/html/magento2/bin/magento config:set -vvv \
+	    dev/js/merge_files 1
+
+/var/www/html/magento2/bin/magento config:set -vvv \
+	    dev/js/minify_files 1
+
 /var/www/html/magento2/bin/magento deploy:mode:set -vvv production
 
