@@ -8,4 +8,5 @@ spec:
     app: magentoweb
   ports:
     - port: 80
+      targetPort: 80
       name: http-server
