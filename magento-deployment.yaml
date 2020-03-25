@@ -19,6 +19,9 @@ spec:
       - image: ACR_LOGIN_SERVER/magento2:latest
         imagePullPolicy: Always
         name: magentoweb2
+        #securityContext:
+        #  runAsUser: 101
+        #  runAsGroup: 82
         resources:
           requests:
             memory: "2Gi"
@@ -48,13 +51,11 @@ spec:
         secret:
           secretName: magento-config
       - name: magento-pub-media
-        azureFile:
-          secretName: azurefilecreds
-          shareName: pub/media
-          readOnly: false
+        nfs:
+          server: magento-nfs-wd7lzqhhiufxs
+          path: /media/nfs/media
       - name: magento-pub-static
-        azureFile:
-          secretName: azurefilecreds
-          shareName: pub/static
-          readOnly: false
+        nfs:
+          server: magento-nfs-wd7lzqhhiufxs
+          path: /media/nfs/static
 

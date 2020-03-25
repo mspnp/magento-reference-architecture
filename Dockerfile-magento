@@ -114,4 +114,5 @@ RUN rm /var/www/html/magento2/app/etc/env.php
 FROM magento2_deps AS magento2
 COPY magento.conf /etc/apache2/conf.d/magento.conf
 COPY --from=clean /var/www/html/magento2 /var/www/html/magento2
+RUN sh -c 'chown magento:www-data /var/www/html/magento2'
 CMD /bin/sh -c 'php-fpm -D && httpd -D FOREGROUND'

@@ -30,4 +30,4 @@ ln -s /home/magento/.composer/auth.json /var/www/html/magento2/var/composer_home
 
 # Let's add the sample data
 /var/www/html/magento2/bin/magento sampledata:deploy
-#/var/www/html/magento2/bin/magento setup:upgrade
+/var/www/html/magento2/bin/magento setup:upgrade
