@@ -1,0 +1,42 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: magento-varnish
+  namespace: magento2
+spec:
+  type: LoadBalancer
+  selector:
+    app: magento-varnish
+  ports:
+    - port: 80
+      name: http-server
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: magento-varnish
+  namespace: magento2
+  labels:
+    app: magento-varnish
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: magento-varnish
+  template:
+    metadata:
+      labels:
+        app: magento-varnish
+    spec:
+      containers:
+      - image: magentonfscr.azurecr.io/varnish:1.0
+        imagePullPolicy: Always
+        name: magento-varnish
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          requests:
+            memory: "2Gi"
+      imagePullSecrets:
+      - name: magento-registry-cred

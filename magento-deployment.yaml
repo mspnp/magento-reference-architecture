@@ -2,11 +2,11 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: magentoweb
-  namespace: default
+  namespace: magento2
   labels:
     app: magentoweb
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: magentoweb
@@ -16,45 +16,66 @@ spec:
         app: magentoweb
     spec:
       containers:
-      - image: ACR_LOGIN_SERVER/magento2:latest
+      #- image: magetoperftestcr.azurecr.io/magento2-fpm:1.1
+      - image: magentonfscr.azurecr.io/magento2-fpm:1.1
         imagePullPolicy: Always
-        name: magentoweb2
+        name: magentoweb
+        ports:
+        - containerPort: 8080
+          protocol: TCP
         resources:
           requests:
-            memory: "2Gi"
+            memory: "4Gi"
         volumeMounts:
+          - name: magento-config
+            mountPath: /var/www/html/magento2/app/etc/env.php
+            subPath: env.php
           - name: magento-pub-media 
             mountPath: /var/www/html/magento2/pub/media
           - name: magento-pub-static
             mountPath: /var/www/html/magento2/pub/static
-          - name: magento-config
-            mountPath: /var/www/html/magento2/app/etc/env.php
-            subPath: env.php
-      - image: ACR_LOGIN_SERVER/varnish:latest
-        imagePullPolicy: Always
-        name: magentoweb
-        ports:
-        - containerPort: 80
-          protocol: TCP
-        resources:
-          requests:
-            memory: "2Gi"
+          # - name: magento
+          #   mountPath: /mnt/magento
+      # - image: ACR_LOGIN_SERVER/varnish:latest
+      #   imagePullPolicy: Always
+      #   name: magentoweb
+      #   ports:
+      #   - containerPort: 80
+      #     protocol: TCP
+      #   resources:
+      #     requests:
+      #       memory: "2Gi"
       imagePullSecrets:
       - name: magento-registry-cred
-      securityContext:
-        fsGroup: 82
+      # securityContext:
+      #   fsGroup: 82
       volumes:
-      - name: magento-config
-        secret:
-          secretName: magento-config
       - name: magento-pub-media
-        azureFile:
-          secretName: azurefilecreds
-          shareName: pub/media
-          readOnly: false
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento/pub/media
       - name: magento-pub-static
-        azureFile:
-          secretName: azurefilecreds
-          shareName: pub/static
-          readOnly: false
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento/pub/static
+      # - name: magento
+      #   nfs:
+      #     server: magento-nfs-vm.magento2.com
+      #     path: /export/magento-storage-pool/magento
+      - name: magento-config
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento
+        # secret:
+        #   secretName: magento-config
+      # - name: magento-pub-media
+      #   azureFile:
+      #     secretName: azurefilecreds
+      #     shareName: magento2/media
+      #     readOnly: false
+      # - name: magento-pub-static
+      #   azureFile:
+      #     secretName: azurefilecreds
+      #     shareName: magento2/static
+      #     readOnly: false
 

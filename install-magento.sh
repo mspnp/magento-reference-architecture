@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -exuo pipefail
 
@@ -7,6 +7,7 @@ set -exuo pipefail
       --db-host=${MAGENTO_DB_HOST} \
       --db-user=${MAGENTO_DB_USER} \
       --db-password="${MAGENTO_DB_PASSWORD}" \
+      --db-ssl-ca="/etc/ssl/certs/BaltimoreCyberTrustRoot.crt.pem" \
       --admin-firstname=${MAGENTO_ADMIN_FIRST_NAME} \
       --admin-lastname=${MAGENTO_ADMIN_LAST_NAME} \
       --admin-email=${MAGENTO_ADMIN_EMAIL} \
