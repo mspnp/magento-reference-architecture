@@ -14,6 +14,7 @@ az group create \
 # We will validate the template first because AKS will check core availability
 az group deployment validate \
     --resource-group ${MAGENTO_RESOURCE_GROUP} \
+    --subscription ${SUBSCRIPTION_ID} \
     --template-file azuredeploy.json  \
     --parameters \
         mysqlAdministratorLogin=${MAGENTO_DB_USER} \
@@ -71,6 +72,10 @@ MAGENTO_DOCKER_VM_PUBLIC_IP_ADDRESS=$(az network public-ip show \
 	--output tsv)
 
 SSH_LOGIN="${SETUP_VM_ADMIN_USERNAME}@${MAGENTO_DOCKER_VM_PUBLIC_IP_ADDRESS}"
+
+if ! grep "$(ssh-keyscan -H ${MAGENTO_DOCKER_VM_PUBLIC_IP_ADDRESS} 2>/dev/null)" ~/.ssh/known_hosts > /dev/null; then
+    ssh-keyscan -H ${MAGENTO_DOCKER_VM_PUBLIC_IP_ADDRESS} >> ~/.ssh/known_hosts
+fi
 
 ssh -i "${SETUP_VM_SSH_PRIVATE_KEY_FILE}" ${SSH_LOGIN} 'git clone https://github.com/mspnp/magento-reference-architecture.git; cd magento-reference-architecture; git checkout andrew/wip;'
 scp -i "${SETUP_VM_SSH_PRIVATE_KEY_FILE}" ./.env ${SSH_LOGIN}:./magento-reference-architecture
