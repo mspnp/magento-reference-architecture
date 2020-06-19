@@ -8,6 +8,7 @@ ENV APACHE_ENVVARS $APACHE_CONFDIR/envvars
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        nginx \
         apache2 \
         unzip \
         wget && \
@@ -70,15 +71,29 @@ RUN	sed -ri 's/^export ([^=]+)=(.*)$/: ${\1:=\2}\nexport \1/' "$APACHE_ENVVARS";
 	ln -sfT /dev/stdout "$APACHE_LOG_DIR/access.log"; \
 	ln -sfT /dev/stdout "$APACHE_LOG_DIR/other_vhosts_access.log"; \
 	chown -R --no-dereference "$APACHE_RUN_USER:$APACHE_RUN_GROUP" "$APACHE_LOG_DIR"; \
-
 # Apache + PHP + FPM requires mpm_event and rewrite, and disabling of preforking Apache for best results
 a2dismod mpm_prefork; \
 a2enmod headers mpm_event proxy proxy_fcgi rewrite; \
 sed -i -e 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf; \
+#sed -i -e 's/catch_workers_output/;catch_workers_output/g' /usr/local/etc/php-fpm.d/docker.conf; \
+#sed -i -e 's/access.log/;access.log/g' /usr/local/etc/php-fpm.d/docker.conf; \
+#sed -i -e 's/pm = dynamic/pm = static/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/pm.max_children = 5/pm.max_children = 10/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/pm.start_servers = 2/pm.start_servers = 5/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/pm.min_spare_servers = 1/pm.min_spare_servers = 2/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/pm.max_spare_servers = 3/pm.max_spare_servers = 5/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/;pm.max_requests = 500/pm.max_requests = 1000/g' /usr/local/etc/php-fpm.d/www.conf; \
+#sed -i -e 's/;log_level = notice/log_level = warning/g' /usr/local/etc/php-fpm.d/www.conf; \
 # Remove default index.html
 rm /var/www/html/index.html; \
 # Remove default site \
-rm /etc/apache2/sites-enabled/000-default.conf; \
+#rm /etc/apache2/sites-enabled/000-default.conf; \
+#rm /etc/apache2/sites-available/000-default.conf; \
+#rm /etc/apache2/sites-available/default-ssl.conf; \
+#rm /etc/apache2/conf-available/other-vhosts-access-log.conf; \
+#rm /var/log/apache2/access.log; \
+#rm /var/log/apache2/other_vhosts_access.log; \
+#echo 'CustomLog /dev/null common' >> /etc/apache2/apache2.conf; \
 useradd --create-home --shell /bin/bash --gid www-data magento; \
 # Set permissions for apache
     chown -R www-data:www-data /var/www && \
@@ -111,16 +126,16 @@ RUN chown -R magento:www-data /var/www/html/magento2 && \
     /magento/install-composer.sh && \
     sed -i -e 's@^max_execution_time.*$@max_execution_time = 1200@g' /usr/local/etc/php/php.ini && \
     su - magento -c 'set -a; . /magento/.env; set +a; /magento/download-magento.sh' && \
-    sed -i -e 's@^max_execution_time.*$@max_execution_time = 30@g' /usr/local/etc/php/php.ini
-COPY install-magento.sh /magento/install-magento.sh
-RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/install-magento.sh'
-COPY configure-magento.sh /magento/configure-magento.sh
-RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh' && \
-# # Setup the apache config
-#     ln -s /etc/apache2/sites-available/magento.conf /etc/apache2/sites-enabled/magento2.conf
+    sed -i -e 's@^max_execution_time.*$@max_execution_time = 30@g' /usr/local/etc/php/php.ini && \
+    # Setup the apache config
+    ln -s /etc/apache2/sites-available/magento.conf /etc/apache2/sites-enabled/magento2.conf
+#COPY install-magento.sh /magento/install-magento.sh
+#RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/install-magento.sh'
+#COPY configure-magento.sh /magento/configure-magento.sh
+#RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh'
 
-# COPY apache2-foreground /usr/local/bin/
-# WORKDIR /var/www/html
+COPY apache2-foreground /usr/local/bin/
+WORKDIR /var/www/html
 
-# #EXPOSE 80
-# CMD ["apache2-foreground"]
+#EXPOSE 80
+CMD ["apache2-foreground"]

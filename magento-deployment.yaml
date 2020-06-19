@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
       #- image: magetoperftestcr.azurecr.io/magento2-fpm:1.1
-      - image: magentonfscr.azurecr.io/magento2-fpm:1.1
+      #- image: magentonfscr.azurecr.io/magento2-fpm:1.1
+      - image: magentonfscr.azurecr.io/magento2-fpm:1.2
         imagePullPolicy: Always
         name: magentoweb
         ports:
@@ -25,17 +26,29 @@ spec:
           protocol: TCP
         resources:
           requests:
-            memory: "4Gi"
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            memory: "2Gi"
         volumeMounts:
           - name: magento-config
+            mountPath: /var/www/html/magento2/app/etc/config.php
+            subPath: config.php
+          - name: magento-env
             mountPath: /var/www/html/magento2/app/etc/env.php
             subPath: env.php
+          - name: magento-nginx-config
+            mountPath: /etc/nginx/sites-enabled/magento.nginx.conf
+            subPath: magento.nginx.conf
+          - name: www-conf
+            mountPath: /usr/local/etc/php-fpm.d/www.conf
+            subPath: www.conf
           - name: magento-pub-media 
             mountPath: /var/www/html/magento2/pub/media
           - name: magento-pub-static
             mountPath: /var/www/html/magento2/pub/static
-          # - name: magento
-          #   mountPath: /mnt/magento
+          - name: magento
+            mountPath: /mnt/magento
       # - image: ACR_LOGIN_SERVER/varnish:latest
       #   imagePullPolicy: Always
       #   name: magentoweb
@@ -50,6 +63,22 @@ spec:
       # securityContext:
       #   fsGroup: 82
       volumes:
+      - name: magento-config
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento
+      - name: magento-env
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento
+      - name: magento-nginx-config
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento
+      - name: www-conf
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento
       - name: magento-pub-media
         nfs:
           server: magento-nfs-vm.magento2.com
@@ -58,11 +87,7 @@ spec:
         nfs:
           server: magento-nfs-vm.magento2.com
           path: /export/magento-storage-pool/magento/pub/static
-      # - name: magento
-      #   nfs:
-      #     server: magento-nfs-vm.magento2.com
-      #     path: /export/magento-storage-pool/magento
-      - name: magento-config
+      - name: magento
         nfs:
           server: magento-nfs-vm.magento2.com
           path: /export/magento-storage-pool/magento

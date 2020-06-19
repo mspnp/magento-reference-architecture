@@ -3,6 +3,8 @@ apiVersion: v1
 metadata:
   name: magento-varnish
   namespace: magento2
+  # annotations:
+  #   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 spec:
   type: LoadBalancer
   selector:
@@ -29,7 +31,7 @@ spec:
         app: magento-varnish
     spec:
       containers:
-      - image: magentonfscr.azurecr.io/varnish:1.0
+      - image: magentonfscr.azurecr.io/varnish:1.1
         imagePullPolicy: Always
         name: magento-varnish
         ports:
@@ -38,5 +40,14 @@ spec:
         resources:
           requests:
             memory: "2Gi"
+        volumeMounts:
+          - name: varnish-config
+            mountPath: /etc/varnish/magento.vcl
+            subPath: magento.vcl
       imagePullSecrets:
       - name: magento-registry-cred
+      volumes:
+      - name: varnish-config
+        nfs:
+          server: magento-nfs-vm.magento2.com
+          path: /export/magento-storage-pool/magento

@@ -38,4 +38,5 @@ for e in "${!APACHE_@}"; do
 done
 
 #exec apache2 -DFOREGROUND "$@"
-exec /bin/bash -c 'php-fpm -D && apache2 -DFOREGROUND '"$@"
+#exec /bin/bash -c 'php-fpm -D && apache2 -DFOREGROUND '"$@"
+exec /bin/bash -c 'php-fpm -D && nginx -g '"'"'daemon off;'"'"' "$@"'

@@ -7,7 +7,7 @@
             "type": "string"
         },
         "mysqlAdministratorLogin": {
-            "defaultValue": "magentoadmin",
+            "defaultValue": "magento",
             "type": "string"
         },
         "mysqlAdministratorPassword": {
@@ -18,20 +18,61 @@
         },
         "aksServicePrincipalSecret": {
             "type": "securestring"
+        },
+        "aksNodePoolSize": {
+            "defaultValue": 10,
+            "type": "int"
         }
     },
     "variables": {
+        "kubernetesSubnetName": "kubernetes",
+        "nameSuffix": "[uniqueString(resourceGroup().id)]",
         "aksClusterName": "[concat('magento-aks-', variables('nameSuffix'))]",
+        "aksDnsPrefix": "[concat('magento-aks-dns', variables('nameSuffix'))]",
         "aksWorkerResourceGroupName": "[concat('magento-aks-worker-rg-', variables('nameSuffix'))]",
         "cdnProfileName": "[concat('magento-cdn-', variables('nameSuffix'))]",
         "containerRegistryName": "[concat('magentocr', variables('nameSuffix'))]",
         "mysqlServerName": "[concat('magento-mysql-', variables('nameSuffix'))]",
-        "nameSuffix": "[uniqueString(resourceGroup().id)]",
         "redisCacheName": "[concat('magento-redis-', variables('nameSuffix'))]",
         "storageAccountName": "[concat('magentofile', variables('nameSuffix'))]",
         "virtualNetworkName": "[concat('magento-vnet-', variables('nameSuffix'))]"
     },
     "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-09-01",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/8"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('kubernetesSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.1.0.0/16",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.Sql",
+                                    "locations": [
+                                        "[parameters('location')]"
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "redis",
+                        "properties": {
+                            "addressPrefix": "10.2.0.0/24"
+                        }
+                    }
+                ]
+            }
+        },
         {
             "type": "Microsoft.Cache/Redis",
             "apiVersion": "2018-03-01",
@@ -44,7 +85,7 @@
                 "sku": {
                     "name": "Premium",
                     "family": "P",
-                    "capacity": 2
+                    "capacity": 3
                 },
                 "enableNonSslPort": true,
                 "minimumTlsVersion": "1.2",
@@ -90,22 +131,25 @@
             "name": "[variables('mysqlServerName')]",
             "location": "[parameters('location')]",
             "sku": {
-                "name": "GP_Gen5_4",
-                "tier": "GeneralPurpose",
+                "name": "MO_Gen5_16",
+                "tier": "MemoryOptimized",
                 "family": "Gen5",
-                "capacity": 4
+                "capacity": 16
             },
             "properties": {
                 "administratorLogin": "[parameters('mysqlAdministratorLogin')]",
                 "administratorLoginPassword": "[parameters('mysqlAdministratorPassword')]",
                 "storageProfile": {
-                    "storageMB": 102400,
+                    "storageMB": 512000,
                     "backupRetentionDays": 7,
                     "geoRedundantBackup": "Disabled",
                     "storageAutoGrow": "Enabled"
                 },
                 "version": "8.0",
-                "sslEnforcement": "Disabled"
+                "sslEnforcement": "Enabled",
+                "minimalTlsVersion": "TLSEnforcementDisabled",
+                "infrastructureEncryption": "Disabled",
+                "publicNetworkAccess": "Enabled"
             },
             "resources": [
                 {
@@ -120,43 +164,32 @@
                     "dependsOn": [
                         "[variables('mysqlServerName')]"
                     ]
+                },
+                {
+                    "type": "firewallRules",
+                    "apiVersion": "2017-12-01",
+                    "name": "AllowAll",
+                    "dependsOn": [
+                        "[variables('mysqlServerName')]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "0.0.0.0",
+                        "endIpAddress": "255.255.255.255"
+                    }
+                },
+                {
+                    "type": "databases",
+                    "apiVersion": "2017-12-01",
+                    "name": "magento2",
+                    "dependsOn": [
+                        "[variables('mysqlServerName')]"
+                    ],
+                    "properties": {
+                        "charset": "latin1",
+                        "collation": "latin1_swedish_ci"
+                    }
                 }
             ]
-        },
-        {
-            "type": "Microsoft.Network/virtualNetworks",
-            "apiVersion": "2019-09-01",
-            "name": "[variables('virtualNetworkName')]",
-            "location": "[parameters('location')]",
-            "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "10.0.0.0/8"
-                    ]
-                },
-                "subnets": [
-                    {
-                        "name": "default",
-                        "properties": {
-                            "addressPrefix": "10.1.0.0/16",
-                            "serviceEndpoints": [
-                                {
-                                    "service": "Microsoft.Sql",
-                                    "locations": [
-                                        "[parameters('location')]"
-                                    ]
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "name": "redis",
-                        "properties": {
-                            "addressPrefix": "10.2.0.0/24"
-                        }
-                    }
-                ]
-            }
         },
         {
             "type": "Microsoft.ContainerService/managedClusters",
@@ -167,33 +200,24 @@
                 "[resourceId('Microsoft.DBforMySQL/servers/virtualNetworkRules', variables('mysqlServerName'), 'kubernetes-vnet')]"
             ],
             "properties": {
-                "kubernetesVersion": "1.15.5",
-                "dnsPrefix": "[concat(variables('aksClusterName'), '-dns')]",
+                "kubernetesVersion": "1.16.7",
+                "dnsPrefix": "[variables('aksDnsPrefix')]",
                 "agentPoolProfiles": [
                     {
                         "name": "agentpool",
-                        "count": 3,
-                        "vmSize": "Standard_D16s_v3",
-                        "osDiskSizeGB": 100,
-                        "vnetSubnetID": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'default')]",
-                        "maxPods": 30,
+                        "count": 5,
+                        "vmSize": "Standard_F8s_v2",
+                        "osDiskSizeGB": 0,
+                        "vnetSubnetID": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('kubernetesSubnetName'))]",
                         "type": "VirtualMachineScaleSets",
-                        "orchestratorVersion": "1.15.5",
-                        "osType": "Linux"
+                        "osType": "Linux",
+                        "storageProfile": "ManagedDisks"
                     }
                 ],
                 "servicePrincipalProfile": {
                     "clientId": "[parameters('aksServicePrincipalClientId')]",
                     "secret": "[parameters('aksServicePrincipalSecret')]"
                 },
-                "addonProfiles": {
-                    "httpapplicationrouting": {
-                        "enabled": false,
-                        "config": {
-                        }
-                    }
-                },
-                "nodeResourceGroup": "[variables('aksWorkerResourceGroupName')]",
                 "enableRBAC": true,
                 "networkProfile": {
                     "networkPlugin": "azure",
@@ -205,18 +229,6 @@
             }
         },
         {
-            "type": "Microsoft.DBforMySQL/servers/databases",
-            "apiVersion": "2017-12-01",
-            "name": "[concat(variables('mysqlServerName'), '/magento2')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.DBforMySQL/servers', variables('mysqlServerName'))]"
-            ],
-            "properties": {
-                "charset": "latin1",
-                "collation": "latin1_swedish_ci"
-            }
-        },
-        {
             "type": "Microsoft.DBforMySQL/servers/virtualNetworkRules",
             "apiVersion": "2017-12-01",
             "name": "[concat(variables('mysqlServerName'), '/kubernetes-vnet')]",
@@ -225,7 +237,7 @@
                 "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
             ],
             "properties": {
-                "virtualNetworkSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'default')]",
+                "virtualNetworkSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('kubernetesSubnetName'))]",
                 "ignoreMissingVnetServiceEndpoint": false
             }
         },

@@ -9,10 +9,8 @@ metadata:
   name: magentoweb
   namespace: magento2
 spec:
-  #type: LoadBalancer
+  type: LoadBalancer
   selector:
     app: magentoweb
   ports:
     - port: 8080
-      #targetPort: 8080
-  #     name: http-server
