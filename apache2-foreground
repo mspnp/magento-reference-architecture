@@ -37,6 +37,24 @@ for e in "${!APACHE_@}"; do
 	fi
 done
 
+#exec /bin/bash -c 'php-fpm -D && nginx -g '"'"'daemon off;'"'"' "$@"'
 #exec apache2 -DFOREGROUND "$@"
-#exec /bin/bash -c 'php-fpm -D && apache2 -DFOREGROUND '"$@"
-exec /bin/bash -c 'php-fpm -D && nginx -g '"'"'daemon off;'"'"' "$@"'
+sed -E -i -e 's@(<argument name="tableStrategy" xsi:type="object">Magento\\Catalog\\Model\\ResourceModel\\Product\\Indexer\\TemporaryTableStrategy</argument>)@<argument name="tableStrategy" xsi:type="object">Magento\\Framework\\Indexer\\Table\\Strategy</argument>@g' /var/www/html/magento2/vendor/magento/module-catalog/etc/di.xml
+sed -E -i -e 's@(<argument name="tableStrategy" xsi:type="object">Magento\\Catalog\\Model\\ResourceModel\\Product\\Indexer\\TemporaryTableStrategy</argument>)@<argument name="tableStrategy" xsi:type="object">Magento\\Framework\\Indexer\\Table\\Strategy</argument>@g' /var/www/html/magento2/vendor/magento/module-configurable-product/etc/di.xml
+sed -E -i -e 's@(<argument name="tableStrategy" xsi:type="object">Magento\\Catalog\\Model\\ResourceModel\\Product\\Indexer\\TemporaryTableStrategy</argument>)@<argument name="tableStrategy" xsi:type="object">Magento\\Framework\\Indexer\\Table\\Strategy</argument>@g' /var/www/html/magento2/vendor/magento/module-bundle/etc/di.xml
+sed -E -i -e 's@(<argument name="tableStrategy" xsi:type="object">Magento\\Catalog\\Model\\ResourceModel\\Product\\Indexer\\TemporaryTableStrategy</argument>)@<argument name="tableStrategy" xsi:type="object">Magento\\Framework\\Indexer\\Table\\Strategy</argument>@g' /var/www/html/magento2/vendor/magento/module-downloadable/etc/di.xml
+
+#sed -i -e 's@listen = 127.0.0.1:9000@listen = /var/run/php7.3-fpm.sock@g' /usr/local/etc/php-fpm.d/www.conf
+#sed -i -e 's@listen = 9000@;listen = 9000@g' /usr/local/etc/php-fpm.d/zz-docker.conf
+#sed -i -e 's@listen = 9000@listen = /var/run/php7.3-fpm.sock@g' /usr/local/etc/php-fpm.d/zz-docker.conf
+
+rm /etc/apache2/sites-enabled/000-default.conf
+
+# Fix access rights to stdout and stderr
+# chown magento:www-data /proc/self/fd/{1,2}
+# usermod -a -G root magento
+# usermod -a -G root www-data
+
+exec /bin/bash -c 'php-fpm -D && apache2 -DFOREGROUND '"$@"
+#exec /bin/bash -c 'php-fpm -D && chown magento:www-data /var/run/php7.3-fpm.sock && apache2 -DFOREGROUND '"$@"
+#exec /bin/bash -c 'su - magento -c '"'"'/usr/local/sbin/php-fpm -D && /usr/sbin/apache2 -DFOREGROUND '"'""$@"

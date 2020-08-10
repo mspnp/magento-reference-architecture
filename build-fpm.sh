@@ -152,8 +152,8 @@ set -exuo pipefail
 # TODO - REMOVE!!!!!
 #MAGENTO_DB_HOST=host.docker.internal
 #MAGENTO_BASE_URL=http://127.0.0.1:8080/
-MAGENTO_DB_HOST=magento-nfs-db.mysql.database.azure.com
-MAGENTO_BASE_URL=http://52.191.229.209:8080/
+#MAGENTO_DB_HOST=magento-nfs-db.mysql.database.azure.com
+#MAGENTO_BASE_URL=http://52.191.229.209:8080/
 sed -e 's@MAGENTO_COMPOSER_USERNAME=$@MAGENTO_COMPOSER_USERNAME='"${MAGENTO_COMPOSER_USERNAME}"'@g' \
       -e 's@MAGENTO_COMPOSER_PASSWORD=$@MAGENTO_COMPOSER_PASSWORD='"${MAGENTO_COMPOSER_PASSWORD}"'@g' \
       -e 's@MAGENTO_DB_HOST=$@MAGENTO_DB_HOST='"${MAGENTO_DB_HOST}"'@g' \
@@ -169,8 +169,9 @@ sed -e 's@MAGENTO_COMPOSER_USERNAME=$@MAGENTO_COMPOSER_USERNAME='"${MAGENTO_COMP
 #       && tar -xf azcopy_v10.tar.gz --strip-components=1
 
 #docker build . -f Dockerfile-fpm -t magento2-fpm:1.0 --no-cache
-docker build . -f Dockerfile-fpm -t magento2-fpm:1.1 #--no-cache
-docker tag magento2-fpm:1.1 magentonfscr.azurecr.io/magento2-fpm:1.1
+#docker build . -f Dockerfile-fpm -t magento2-fpm:1.1 #--no-cache
+docker build . -f Dockerfile-fpm --network magento-reference-architecture_default -t magento2-fpm:1.5 | tee magento2.log #--no-cache
+docker tag magento2-fpm:1.5 magentonfscr.azurecr.io/magento2-fpm:1.5
 # # Build the local builder and tag it so we can get the generated configuration file out
 # docker build . -f Dockerfile-fpm \
 #       --target builder \
