@@ -8,7 +8,7 @@ ENV APACHE_ENVVARS $APACHE_CONFDIR/envvars
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        nginx \
+        #nginx \
         apache2 \
         unzip \
         wget && \
@@ -35,6 +35,9 @@ RUN apt-get update && \
     sed -i -e 's@;date\.timezone =@date.timezone = '"${MAGENTO_TIMEZONE}"'@g' \
         -e 's@^;opcache.save_comments.*$@opcache.save_comments=1@g' \
         -e 's@^memory_limit.*$@memory_limit='"$MAGENTO_PHP_MEMORYLIMIT"'@g' /usr/local/etc/php/php.ini && \
+    # Disable PHP-FPM access log
+    sed -i -e 's/access.log/;access.log/g' /usr/local/etc/php-fpm.d/docker.conf && \
+    #sed -i -e 's/listen/;listen/g' /usr/local/etc/php-fpm.d/zz-docker.conf \
     wget --output-document=/etc/ssl/certs/BaltimoreCyberTrustRoot.crt.pem https://www.digicert.com/CACerts/BaltimoreCyberTrustRoot.crt.pem
 
 # Since the above takes so long, we'll put two RUN directives for now
@@ -64,8 +67,8 @@ RUN	sed -ri 's/^export ([^=]+)=(.*)$/: ${\1:=\2}\nexport \1/' "$APACHE_ENVVARS";
 	done; \
 	\
 # delete the "index.html" that installing Apache drops in here
-#	rm -rvf /var/www/html/*; \
-#	\
+	rm -rvf /var/www/html/*; \
+	\
 # logs should go to stdout / stderr
 	ln -sfT /dev/stderr "$APACHE_LOG_DIR/error.log"; \
 	ln -sfT /dev/stdout "$APACHE_LOG_DIR/access.log"; \
@@ -84,8 +87,8 @@ sed -i -e 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf; \
 #sed -i -e 's/pm.max_spare_servers = 3/pm.max_spare_servers = 5/g' /usr/local/etc/php-fpm.d/www.conf; \
 #sed -i -e 's/;pm.max_requests = 500/pm.max_requests = 1000/g' /usr/local/etc/php-fpm.d/www.conf; \
 #sed -i -e 's/;log_level = notice/log_level = warning/g' /usr/local/etc/php-fpm.d/www.conf; \
-# Remove default index.html
-rm /var/www/html/index.html; \
+# # Remove default index.html
+# rm /var/www/html/index.html; \
 # Remove default site \
 #rm /etc/apache2/sites-enabled/000-default.conf; \
 #rm /etc/apache2/sites-available/000-default.conf; \
@@ -129,13 +132,22 @@ RUN chown -R magento:www-data /var/www/html/magento2 && \
     sed -i -e 's@^max_execution_time.*$@max_execution_time = 30@g' /usr/local/etc/php/php.ini && \
     # Setup the apache config
     ln -s /etc/apache2/sites-available/magento.conf /etc/apache2/sites-enabled/magento2.conf
-#COPY install-magento.sh /magento/install-magento.sh
-#RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/install-magento.sh'
-#COPY configure-magento.sh /magento/configure-magento.sh
-#RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh'
+COPY install-magento.sh /magento/install-magento.sh
+RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/install-magento.sh'
+COPY configure-magento.sh /magento/configure-magento.sh
+RUN su - magento -c 'set -a; . /magento/.env; set +a; /magento/configure-magento.sh'
 
 COPY apache2-foreground /usr/local/bin/
 WORKDIR /var/www/html
+
+# RUN apt-get update && \
+#     DEBIAN_FRONTEND=noninteractive apt-get -y install gnupg2 && \
+#     echo 'deb http://apt.newrelic.com/debian/ newrelic non-free' | tee /etc/apt/sources.list.d/newrelic.list && \
+#     wget -O- https://download.newrelic.com/548C16BF.gpg | apt-key add - && \
+#     apt-get update && \
+#     echo newrelic-php5 newrelic-php5/application-name string "magentoweb" | debconf-set-selections && \
+#     echo newrelic-php5 newrelic-php5/license-key string "4323b2b25177ca4d39c1543ce3e2fd83cb48NRAL" | debconf-set-selections && \
+#     DEBIAN_FRONTEND=noninteractive apt-get -y install newrelic-php5
 
 #EXPOSE 80
 CMD ["apache2-foreground"]
