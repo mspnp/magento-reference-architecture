@@ -415,6 +415,22 @@
         {
             "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
             "apiVersion": "2018-09-01",
+            "name": "[concat(variables('mysqlPrivateDnsZoneName'), '/', variables('virtualNetworkName'), '-', variables('nameSuffix'))]",
+            "location": "global",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('mysqlPrivateDnsZoneName'))]"
+            ],
+            "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
             "name": "[concat(variables('filePrivateDnsZoneName'), '/', variables('virtualNetworkName'), '-', variables('nameSuffix'))]",
             "location": "global",
             "dependsOn": [

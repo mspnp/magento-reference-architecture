@@ -1,18 +1,16 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: magento-varnish
-  namespace: magento2
-  # annotations:
-  #   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
-spec:
-  type: LoadBalancer
-  selector:
-    app: magento-varnish
-  ports:
-    - port: 80
-      name: http-server
----
+# kind: Service
+# apiVersion: v1
+# metadata:
+#   name: magento-varnish
+#   namespace: magento2
+# spec:
+#   type: LoadBalancer
+#   selector:
+#     app: magento-varnish
+#   ports:
+#     - port: 80
+#       name: http-server
+# ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -49,5 +47,5 @@ spec:
       volumes:
       - name: varnish-config
         nfs:
-          server: magento-nfs-vm.magento2.com
+          server: magento-nfs-vm
           path: /export/magento-storage-pool/magento

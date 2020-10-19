@@ -1,0 +1,32 @@
+version: "3"
+services:
+  mysql:
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MAGENTO_DB_PASSWORD}
+      - MYSQL_DATABASE=magento2
+      - MYSQL_USER=${MAGENTO_DB_USER}
+      - MYSQL_PASSWORD=${MAGENTO_DB_PASSWORD}
+    image: mysql/mysql-server:8.0.21
+    volumes:
+      - ./:/magento
+    ports:
+      - "3306"
+  redis:
+    command: --user default on +@all ~* >${MAGENTO_CACHE_PASSWORD}
+    image: redis:6.0.5-buster
+    ports:
+      - "6379"
+  elasticsearch:
+    environment:
+      - discovery.type=single-node
+    image: elasticsearch:7.8.1
+    ports:
+      - "9200"
+      - "9300"
+  docker:
+    image: docker:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/magento
+    command: sleep infinity
